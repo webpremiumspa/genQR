@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SVG card sheet generator for Power Automate + PythonAnywhere.
+SVG card sheet generator for Power Automate + Azure Container Apps.
 
 This module is intentionally API-oriented: it does not read a local CSV and it
 does not write output files. The caller provides rows and an SVG template, and
