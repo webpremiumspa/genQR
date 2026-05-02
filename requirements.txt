@@ -1,0 +1,4 @@
+Flask>=3.0,<4
+gunicorn>=21,<23
+qrcode>=7.4,<9
+PySide6-Essentials>=6.6,<7
