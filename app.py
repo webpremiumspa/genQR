@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Flask endpoint for PythonAnywhere.
+Flask endpoint for Azure Container Apps.
 
 Power Automate sends Excel rows to /generate-svg. The SVG template is read from
 the server project folder by default, so the flow does not need to send the
