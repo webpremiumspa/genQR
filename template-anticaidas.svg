@@ -2507,5 +2507,17 @@
          style="fill:#000000;fill-opacity:0;stroke:#400080;stroke-width:0.118031;stroke-dasharray:none;stroke-opacity:1"
          x="-86.344772"
          y="12.596117">{NUM_QR}</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:condensed;font-size:6.46503px;font-family:Arial;-inkscape-font-specification:'Arial Condensed';text-align:end;writing-mode:lr-tb;direction:ltr;text-anchor:end;fill:#000000;fill-opacity:0;stroke:#400080;stroke-width:0.225525;stroke-opacity:1"
+       x="148"
+       y="18"
+       text-anchor="end"
+       id="TXT_NUMERO"
+       inkscape:label="TXT_NUMERO"><tspan
+         id="tspanNUMERO"
+         x="148"
+         y="18"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:condensed;font-family:Arial;-inkscape-font-specification:'Arial Condensed';stroke:#400080;stroke-width:0.225525;stroke-opacity:1">{NUMERO}</tspan></text>
   </g>
 </svg>

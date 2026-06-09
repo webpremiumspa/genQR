@@ -57,6 +57,10 @@ COLUMN_ALIASES = {
     "TIPO_DE_SISTEMA": "TIPO_SISTEMA",
     "NUM_QR": "NUM_QR",
     "NUMQR": "NUM_QR",
+    "NUMERO": "NUMERO",
+    "NUM": "NUMERO",
+    "N_TARJETA": "NUMERO",
+    "NTARJETA": "NUMERO",
 }
 
 # Text to paths.
@@ -78,6 +82,7 @@ FONT_PX = {
     "TXT_FECHA": 13.0,
     "TXT_TIPOSISTEMA": 17.0,
     "NUM_QR": 10.0,
+    "TXT_NUMERO": 17.0,
 }
 
 FORCE_UPPERCASE = True
@@ -92,6 +97,7 @@ CONDENSE_X_MAP = {
     "TXT_FECHA": 0.5,
     "TXT_TIPOSISTEMA": 0.5,
     "NUM_QR": 0.8,
+    "TXT_NUMERO": 0.5,
 }
 
 NUDGE_Y_MM = {
@@ -100,6 +106,7 @@ NUDGE_Y_MM = {
     "TXT_FECHA": -1.0,
     "TXT_TIPOSISTEMA": -1.5,
     "NUM_QR": 0.60,
+    "TXT_NUMERO": -1.0,
 }
 NUDGE_X_MM: dict[str, float] = {}
 
@@ -397,6 +404,7 @@ def render_card(
     svg = replace_text_id_with_path(svg, "TXT_CODPRY", row.get("CODPRY", ""))
     svg = replace_text_id_with_path(svg, "TXT_FECHA", row.get("FECHA", ""))
     svg = replace_text_id_with_path(svg, "TXT_TIPOSISTEMA", row.get("TIPO_SISTEMA", ""))
+    svg = replace_text_id_with_path(svg, "TXT_NUMERO", row.get("NUMERO", ""))
 
     num_qr = row.get("NUM_QR") or gen_qr_number(30)
     url_qr = BASE_QR_URL + num_qr
@@ -512,6 +520,7 @@ def build_individual_card_svgs(
             "CODPRY": row.get("CODPRY", ""),
             "FECHA": row.get("FECHA", ""),
             "TIPO_SISTEMA": row.get("TIPO_SISTEMA", ""),
+            "NUMERO": row.get("NUMERO", ""),
         
             # Datos QR generados
             "NUM_QR": qr_entry.get("NUM_QR", ""),
