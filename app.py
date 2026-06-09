@@ -1,114 +1,67 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Flask endpoint for Azure Container Apps.
 
-Power Automate sends Excel rows to /generate-svg. The SVG template is read from
-the server project folder by default, so the flow does not need to send the
-template on every request.
-"""
-
-from __future__ import annotations
-
-import hmac
 import os
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
-from flask import Flask, Response, jsonify, request
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from genQRSVG import generate_svg_from_rows
-
+from flask import Flask, request, jsonify
+from genQRSVG import generate_svg_bundle_from_rows
 
 BASE_DIR = Path(__file__).resolve().parent
-TEMPLATE_PATH = Path(
-    os.getenv("TEMPLATE_SVG_PATH", str(BASE_DIR / "template-anticaidas.svg"))
-)
-DEFAULT_RESPONSE_MODE = os.getenv("SVG_RESPONSE_MODE", "json").lower()
+TEMPLATE_PATH = BASE_DIR / "template-anticaidas.svg"
+API_KEY = os.getenv("SVG_API_KEY", "")
 
-app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH", 16 * 1024 * 1024))
+application = Flask(__name__)
 
 
-def _api_key_error():
-    expected = os.getenv("SVG_API_KEY", "").strip()
-    if not expected:
-        return None
-
-    received = request.headers.get("X-API-Key", "").strip()
-    if not hmac.compare_digest(received, expected):
-        return jsonify({"error": "API key invalida o ausente."}), 401
-    return None
-
-
-def _load_template_svg(payload: dict[str, Any]) -> str:
-    inline_template = payload.get("template_svg")
-    if isinstance(inline_template, str) and inline_template.strip():
-        return inline_template
-
-    if not TEMPLATE_PATH.exists():
-        raise FileNotFoundError(
-            f"No se encontro la plantilla SVG en: {TEMPLATE_PATH}"
-        )
-    return TEMPLATE_PATH.read_text(encoding="utf-8")
-
-
-def _extract_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    rows = payload.get("rows")
-    if rows is None:
-        rows = payload.get("value")
-
-    body = payload.get("body")
-    if rows is None and isinstance(body, dict):
-        rows = body.get("value")
-
-    if rows is None:
-        raise ValueError("El payload debe incluir 'rows' con las filas de Excel.")
-    if not isinstance(rows, list):
-        raise ValueError("'rows' debe ser una lista.")
-    return rows
-
-
-def _default_filename() -> str:
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    return f"tarjetas_anticaidas_5x5_vector_{stamp}.svg"
-
-
-@app.get("/health")
-def health():
-    return jsonify(
-        {
+@application.route("/", methods=["GET", "POST"])
+def index():
+    if request.method == "GET":
+        return jsonify({
             "ok": True,
-            "template_path": str(TEMPLATE_PATH),
+            "message": "API SVG funcionando",
             "template_exists": TEMPLATE_PATH.exists(),
-        }
-    )
+            "template_file": TEMPLATE_PATH.name
+        })
 
-
-@app.post("/generate-svg")
-def generate_svg():
-    auth_error = _api_key_error()
-    if auth_error:
-        return auth_error
-
-    payload = request.get_json(silent=True) or {}
     try:
-        rows = _extract_rows(payload)
-        template_svg = _load_template_svg(payload)
-        result = generate_svg_from_rows(rows=rows, template_svg=template_svg)
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
+        if API_KEY:
+            received_key = request.headers.get("X-API-Key", "")
+            if received_key != API_KEY:
+                return jsonify({
+                    "ok": False,
+                    "error": "No autorizado"
+                }), 401
+                
+        data = request.get_json(silent=True)
 
-    filename = str(payload.get("filename") or _default_filename())
-    response_mode = str(payload.get("response_mode") or DEFAULT_RESPONSE_MODE).lower()
+        if not data:
+            return jsonify({
+                "ok": False,
+                "error": "No se recibio JSON valido"
+            }), 400
 
-    if response_mode == "svg":
-        return Response(
-            result["svg"],
-            mimetype="image/svg+xml; charset=utf-8",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-        )
+        rows = data.get("rows")
 
-    result["filename"] = filename
-    return jsonify(result)
+        if not TEMPLATE_PATH.exists():
+            return jsonify({
+                "ok": False,
+                "error": "No existe template-anticaidas.svg en el servidor"
+            }), 500
+
+        template_svg = TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        result = generate_svg_bundle_from_rows(rows, template_svg)
+
+        return jsonify({
+            "ok": True,
+            "filename": "tarjetas_anticaidas_5x5_vector.svg",
+            **result
+        })
+
+    except Exception as e:
+        return jsonify({
+            "ok": False,
+            "error": str(e)
+        }), 500

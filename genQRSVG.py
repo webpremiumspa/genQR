@@ -95,10 +95,10 @@ CONDENSE_X_MAP = {
 }
 
 NUDGE_Y_MM = {
-    "TXT_CLIENTE": 0.0,
-    "TXT_CODPRY": 0.0,
-    "TXT_FECHA": 0.0,
-    "TXT_TIPOSISTEMA": 0.0,
+    "TXT_CLIENTE": -1.0,
+    "TXT_CODPRY": -1.5,
+    "TXT_FECHA": -1.0,
+    "TXT_TIPOSISTEMA": -1.5,
     "NUM_QR": 0.60,
 }
 NUDGE_X_MM: dict[str, float] = {}
@@ -445,6 +445,128 @@ def build_sheet_svg(
     parts.append("</svg>")
     return "\n".join(parts), qr_numbers
 
+def _safe_filename_part(value: Any, fallback: str = "SIN_DATO") -> str:
+    text = "" if value is None else str(value).strip()
+    if not text:
+        text = fallback
+    text = re.sub(r"[^A-Za-z0-9_-]+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("_")
+    return text or fallback
+
+
+def assign_qr_numbers_once(rows_or_blanks: list[dict[str, str]]) -> None:
+    """
+    Asigna NUM_QR una sola vez por registro real.
+    Asi la hoja 5x5 y la tarjeta individual usan el mismo QR.
+    """
+    for row in rows_or_blanks:
+        if not row:
+            continue
+        if not row.get("NUM_QR"):
+            row["NUM_QR"] = gen_qr_number(30)
+
+
+def build_individual_card_svgs(
+    inner_template: str,
+    rows_or_blanks: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    files: list[dict[str, Any]] = []
+
+    for i, row in enumerate(rows_or_blanks, start=1):
+        if not row:
+            continue
+
+        content, qr_entry = render_card(inner_template, row, blank=False)
+
+        if not content or not qr_entry:
+            continue
+
+        codpry = _safe_filename_part(row.get("CODPRY", ""), f"REGISTRO_{i:03d}")
+        cliente = _safe_filename_part(row.get("CLIENTE", ""), "CLIENTE")
+        num_qr = _safe_filename_part(qr_entry.get("NUM_QR", ""), "QR")
+
+        svg = "\n".join([
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            (
+                f'<svg xmlns="http://www.w3.org/2000/svg" '
+                f'width="{CARD_MM}mm" height="{CARD_MM}mm" '
+                f'viewBox="0 0 {CARD_MM} {CARD_MM}">'
+            ),
+            content,
+            "</svg>",
+        ])
+
+        files.append({
+            "type": "card",
+            "index": i,
+            "filename": f"tarjeta_{i:03d}_{codpry}_{num_qr}.svg",
+            "width_mm": CARD_MM,
+            "height_mm": CARD_MM,
+        
+            # Identificadores recibidos desde AppSheet / Power Automate
+            "ID_GEN_QR": row.get("ID_GEN_QR", ""),
+            "IDITEM": row.get("IDITEM", ""),
+        
+            # Datos visibles de la tarjeta
+            "CLIENTE": row.get("CLIENTE", ""),
+            "CODPRY": row.get("CODPRY", ""),
+            "FECHA": row.get("FECHA", ""),
+            "TIPO_SISTEMA": row.get("TIPO_SISTEMA", ""),
+        
+            # Datos QR generados
+            "NUM_QR": qr_entry.get("NUM_QR", ""),
+            "URL_QR": qr_entry.get("URL_QR", ""),
+        
+            "svg": svg,
+        })
+
+    return files
+
+
+def generate_svg_bundle_from_rows(
+    rows: list[dict[str, Any]],
+    template_svg: str,
+) -> dict[str, Any]:
+    """
+    Genera:
+    - 1 SVG completo 5x5 de 400x400 mm.
+    - 1 SVG individual de 80x80 mm por cada registro.
+    Los NUM_QR se asignan una sola vez y se reutilizan en ambos formatos.
+    """
+    if not isinstance(template_svg, str) or not template_svg.strip():
+        raise ValueError("El campo 'template_svg' es obligatorio.")
+
+    sheet_rows, used_rows, ignored_rows = prepare_sheet_rows(rows)
+
+    # Punto clave: QR asignado una sola vez antes de generar cualquier SVG.
+    assign_qr_numbers_once(sheet_rows)
+
+    inner_template = extract_inner_from_template(template_svg)
+
+    sheet_svg, qr_numbers = build_sheet_svg(inner_template, sheet_rows)
+    individual_files = build_individual_card_svgs(inner_template, sheet_rows)
+
+    sheet_file = {
+        "type": "sheet",
+        "filename": "tarjetas_anticaidas_5x5_vector.svg",
+        "width_mm": SHEET_W_MM,
+        "height_mm": SHEET_H_MM,
+        "svg": sheet_svg,
+    }
+
+    files = [sheet_file] + individual_files
+
+    return {
+        "mode": "sheet_and_individual",
+        "filename": sheet_file["filename"],
+        "svg": sheet_svg,
+        "qr_numbers": qr_numbers,
+        "files": files,
+        "used_rows": used_rows,
+        "ignored_rows": ignored_rows,
+        "max_cards": MAX_CARDS,
+        "file_count": len(files),
+    }
 
 def generate_svg_from_rows(
     rows: list[dict[str, Any]],
@@ -470,4 +592,5 @@ __all__ = [
     "MAX_CARDS",
     "REQUIRED_COLUMNS",
     "generate_svg_from_rows",
+    "generate_svg_bundle_from_rows",
 ]
