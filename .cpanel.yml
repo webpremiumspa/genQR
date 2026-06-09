@@ -1,0 +1,15 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/somitalc/public_html/dev/genQRSistemas
+    - /bin/mkdir -p $DEPLOYPATH
+    # Copia de los archivos de la aplicación al directorio de despliegue
+    - /bin/cp -f passenger_wsgi.py $DEPLOYPATH/
+    - /bin/cp -f app.py $DEPLOYPATH/
+    - /bin/cp -f genQRSVG.py $DEPLOYPATH/
+    - /bin/cp -f requirements.txt $DEPLOYPATH/
+    - /bin/cp -f template-anticaidas.svg $DEPLOYPATH/
+    - /bin/cp -Rf fonts $DEPLOYPATH/
+    # Reinicio de la aplicación Passenger
+    - /bin/mkdir -p $DEPLOYPATH/tmp
+    - /bin/touch $DEPLOYPATH/tmp/restart.txt
