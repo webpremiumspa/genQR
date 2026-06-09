@@ -1,0 +1,3 @@
+# Passenger/CloudLinux gestiona este archivo automaticamente.
+# CloudLinux agrega aqui sus directivas al iniciar/reiniciar la app de Python.
+# No borrar: si falta, "Detener"/"Reiniciar" falla con FileNotFoundError.

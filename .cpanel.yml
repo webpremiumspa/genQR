@@ -9,5 +9,6 @@ deployment:
     - /bin/cp -f requirements.txt $DEPLOYPATH
     - /bin/cp -f template-anticaidas.svg $DEPLOYPATH
     - /bin/cp -Rf fonts $DEPLOYPATH
+    - test -f $DEPLOYPATH/.htaccess || /bin/cp -f .htaccess $DEPLOYPATH
     - /bin/mkdir -p $DEPLOYPATH/tmp
     - /bin/touch $DEPLOYPATH/tmp/restart.txt
