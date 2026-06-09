@@ -1,3 +1,10 @@
-# Passenger/CloudLinux gestiona este archivo automaticamente.
-# CloudLinux agrega aqui sus directivas al iniciar/reiniciar la app de Python.
-# No borrar: si falta, "Detener"/"Reiniciar" falla con FileNotFoundError.
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/somitalc/public_html/dev/genQRSistemas"
+PassengerBaseURI "/genQRSistemas"
+PassengerPython "/home/somitalc/virtualenv/public_html/dev/genQRSistemas/3.11/bin/python"
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+# DO NOT REMOVE OR MODIFY. CLOUDLINUX ENV VARS CONFIGURATION BEGIN
+<IfModule Litespeed>
+SetEnv SVG_API_KEY r7iDchsiO7V1MPLKHIUUJLNmjt1PPW9g
+</IfModule>
+# DO NOT REMOVE OR MODIFY. CLOUDLINUX ENV VARS CONFIGURATION END
