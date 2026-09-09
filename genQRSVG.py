@@ -46,6 +46,8 @@ COLS, ROWS = 5, 5
 MAX_CARDS = COLS * ROWS
 SHEET_W_MM, SHEET_H_MM = CARD_MM * COLS, CARD_MM * ROWS
 
+DEFAULT_SHEET_FILENAME = "tarjetas_anticaidas_5x5_vector.svg"
+
 REQUIRED_COLUMNS = ("CLIENTE", "CODPRY", "FECHA", "TIPO_SISTEMA")
 COLUMN_ALIASES = {
     "CLIENTE": "CLIENTE",
@@ -271,17 +273,42 @@ def clean_inkscape_blocks(svg: str) -> str:
     return svg
 
 
+def _root_level_groups(fragment: str) -> list[str]:
+    """
+    Devuelve los <g> de primer nivel del fragmento, respetando anidamiento.
+    Se usa para no perder grupos hermanos de layer-MC0 (por ejemplo el logo
+    de template-siesa, que vive fuera de la capa principal).
+    """
+    groups: list[str] = []
+    depth = 0
+    start: int | None = None
+
+    for match in re.finditer(r"<g(?![\w-])[^>]*?(/?)>|</g\s*>", fragment):
+        token = match.group(0)
+        if token.startswith("</g"):
+            if depth:
+                depth -= 1
+                if depth == 0 and start is not None:
+                    groups.append(fragment[start : match.end()])
+                    start = None
+        elif match.group(1) == "/":
+            if depth == 0:
+                groups.append(token)
+        else:
+            if depth == 0:
+                start = match.start()
+            depth += 1
+
+    return groups
+
+
 def extract_inner_from_template(template_svg: str) -> str:
-    match = re.search(
-        r'(<g[^>]*id="layer-MC0"[^>]*>.*?</g>)',
-        template_svg,
-        flags=re.DOTALL,
-    )
-    if match:
-        inner = match.group(1)
-    else:
-        inner = re.sub(r"^.*?<svg[^>]*>\s*", "", template_svg, flags=re.DOTALL)
-        inner = re.sub(r"\s*</svg>\s*$", "", inner, flags=re.DOTALL)
+    body = re.sub(r"^.*?<svg[^>]*>\s*", "", template_svg, flags=re.DOTALL)
+    body = re.sub(r"\s*</svg>\s*$", "", body, flags=re.DOTALL)
+
+    # layer-MC0 mas cualquier grupo hermano posterior (logo, sellos, etc.).
+    groups = _root_level_groups(body)
+    inner = "".join(groups) if groups else body
     return clean_inkscape_blocks(inner)
 
 
@@ -395,6 +422,7 @@ def render_card(
     inner_template: str,
     row: dict[str, str],
     blank: bool = False,
+    base_qr_url: str | None = None,
 ) -> tuple[str, dict[str, str] | None]:
     if blank or not row:
         return "", None
@@ -407,7 +435,7 @@ def render_card(
     svg = replace_text_id_with_path(svg, "TXT_NUMERO", row.get("NUMERO", ""))
 
     num_qr = row.get("NUM_QR") or gen_qr_number(30)
-    url_qr = BASE_QR_URL + num_qr
+    url_qr = (base_qr_url or BASE_QR_URL) + num_qr
     svg = replace_text_id_with_path(svg, "NUM_QR", num_qr)
     svg = replace_qr_rect_with_vector(svg, url_qr)
     svg = strip_all_ids(svg)
@@ -425,6 +453,7 @@ def render_card(
 def build_sheet_svg(
     inner_template: str,
     rows_or_blanks: list[dict[str, str]],
+    base_qr_url: str | None = None,
 ) -> tuple[str, list[dict[str, str]]]:
     parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -443,7 +472,9 @@ def build_sheet_svg(
         y = r * CARD_MM
         row = rows_or_blanks[i]
 
-        content, qr_entry = render_card(inner_template, row, blank=not row)
+        content, qr_entry = render_card(
+            inner_template, row, blank=not row, base_qr_url=base_qr_url
+        )
         if content:
             parts.append(f'<g transform="translate({x},{y})">{content}</g>')
         if qr_entry:
@@ -477,6 +508,7 @@ def assign_qr_numbers_once(rows_or_blanks: list[dict[str, str]]) -> None:
 def build_individual_card_svgs(
     inner_template: str,
     rows_or_blanks: list[dict[str, str]],
+    base_qr_url: str | None = None,
 ) -> list[dict[str, Any]]:
     files: list[dict[str, Any]] = []
 
@@ -484,7 +516,9 @@ def build_individual_card_svgs(
         if not row:
             continue
 
-        content, qr_entry = render_card(inner_template, row, blank=False)
+        content, qr_entry = render_card(
+            inner_template, row, blank=False, base_qr_url=base_qr_url
+        )
 
         if not content or not qr_entry:
             continue
@@ -535,6 +569,8 @@ def build_individual_card_svgs(
 def generate_svg_bundle_from_rows(
     rows: list[dict[str, Any]],
     template_svg: str,
+    base_qr_url: str | None = None,
+    sheet_filename: str | None = None,
 ) -> dict[str, Any]:
     """
     Genera:
@@ -552,12 +588,16 @@ def generate_svg_bundle_from_rows(
 
     inner_template = extract_inner_from_template(template_svg)
 
-    sheet_svg, qr_numbers = build_sheet_svg(inner_template, sheet_rows)
-    individual_files = build_individual_card_svgs(inner_template, sheet_rows)
+    sheet_svg, qr_numbers = build_sheet_svg(
+        inner_template, sheet_rows, base_qr_url=base_qr_url
+    )
+    individual_files = build_individual_card_svgs(
+        inner_template, sheet_rows, base_qr_url=base_qr_url
+    )
 
     sheet_file = {
         "type": "sheet",
-        "filename": "tarjetas_anticaidas_5x5_vector.svg",
+        "filename": sheet_filename or DEFAULT_SHEET_FILENAME,
         "width_mm": SHEET_W_MM,
         "height_mm": SHEET_H_MM,
         "svg": sheet_svg,
@@ -580,13 +620,16 @@ def generate_svg_bundle_from_rows(
 def generate_svg_from_rows(
     rows: list[dict[str, Any]],
     template_svg: str,
+    base_qr_url: str | None = None,
 ) -> dict[str, Any]:
     if not isinstance(template_svg, str) or not template_svg.strip():
         raise ValueError("El campo 'template_svg' es obligatorio.")
 
     sheet_rows, used_rows, ignored_rows = prepare_sheet_rows(rows)
     inner_template = extract_inner_from_template(template_svg)
-    svg, qr_numbers = build_sheet_svg(inner_template, sheet_rows)
+    svg, qr_numbers = build_sheet_svg(
+        inner_template, sheet_rows, base_qr_url=base_qr_url
+    )
 
     return {
         "svg": svg,
