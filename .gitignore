@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+*.local_backup_*.py
+
+.htaccess
